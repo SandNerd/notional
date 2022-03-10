@@ -11,7 +11,14 @@ from typing import List, Optional, Union
 
 from .core import NestedObject, TypedObject
 from .records import Record
-from .text import CodingLanguage, RichTextObject, TextObject, markdown, plain_text
+from .text import (
+    CodingLanguage,
+    FullColor,
+    RichTextObject,
+    TextObject,
+    markdown,
+    plain_text,
+)
 from .types import EmojiObject, FileObject
 
 log = logging.getLogger(__name__)
@@ -63,12 +70,38 @@ class TextBlock(Block):
         return plain_text(*content.text)
 
 
-class Paragraph(TextBlock, type="paragraph"):
+class AppendChildren(object):
+    def __iadd__(self, block):
+        self.append(block)
+        return self
+
+    def append(self, block):
+        type = getattr(self, "type", None)
+
+        if type is None:
+            raise AttributeError("type not found")
+
+        nested = getattr(self, type)
+
+        if nested is None:
+            raise AttributeError("missing nested data")
+
+        if not hasattr(nested, "children"):
+            raise AttributeError("nested data does not support children")
+
+        if nested.children is None:
+            nested.children = list()
+
+        nested.children.append(block)
+
+
+class Paragraph(TextBlock, AppendChildren, type="paragraph"):
     """A paragraph block in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     paragraph: NestedData = NestedData()
 
@@ -85,6 +118,7 @@ class Heading1(TextBlock, type="heading_1"):
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
+        color: FullColor = FullColor.default
 
     heading_1: NestedData = NestedData()
 
@@ -101,8 +135,9 @@ class Heading2(TextBlock, type="heading_2"):
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
+        color: FullColor = FullColor.default
 
-    heading_2: NestedData = NestedData
+    heading_2: NestedData = NestedData()
 
     @property
     def Markdown(self):
@@ -117,6 +152,7 @@ class Heading3(TextBlock, type="heading_3"):
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
+        color: FullColor = FullColor.default
 
     heading_3: NestedData = NestedData()
 
@@ -128,12 +164,13 @@ class Heading3(TextBlock, type="heading_3"):
         return ""
 
 
-class Quote(TextBlock, type="quote"):
+class Quote(TextBlock, AppendChildren, type="quote"):
     """A quote block in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     quote: NestedData = NestedData()
 
@@ -167,23 +204,25 @@ class Code(TextBlock, type="code"):
         return ""
 
 
-class Callout(TextBlock, type="callout"):
+class Callout(TextBlock, AppendChildren, type="callout"):
     """A callout block in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
         icon: Optional[Union[FileObject, EmojiObject]] = None
+        color: FullColor = FullColor.default
 
     callout: NestedData = NestedData()
 
 
-class BulletedListItem(TextBlock, type="bulleted_list_item"):
+class BulletedListItem(TextBlock, AppendChildren, type="bulleted_list_item"):
     """A bulleted list item in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     bulleted_list_item: NestedData = NestedData()
 
@@ -192,12 +231,13 @@ class BulletedListItem(TextBlock, type="bulleted_list_item"):
         return f"- {super().Markdown}"
 
 
-class NumberedListItem(TextBlock, type="numbered_list_item"):
+class NumberedListItem(TextBlock, AppendChildren, type="numbered_list_item"):
     """A numbered list item in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     numbered_list_item: NestedData = NestedData()
 
@@ -206,23 +246,25 @@ class NumberedListItem(TextBlock, type="numbered_list_item"):
         return f"1. {super().Markdown}"
 
 
-class ToDo(TextBlock, type="to_do"):
+class ToDo(TextBlock, AppendChildren, type="to_do"):
     """A todo list item in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         checked: bool = False
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     to_do: NestedData = NestedData()
 
 
-class Toggle(TextBlock, type="toggle"):
+class Toggle(TextBlock, AppendChildren, type="toggle"):
     """A toggle list item in Notion."""
 
     class NestedData(NestedObject):
         text: List[RichTextObject] = []
         children: Optional[List[Block]] = None
+        color: FullColor = FullColor.default
 
     toggle: NestedData = NestedData()
 
@@ -233,7 +275,7 @@ class Divider(Block, type="divider"):
     class NestedData(NestedObject):
         pass
 
-    divider: Optional[NestedData] = None
+    divider: NestedData = NestedData()
 
     @property
     def Markdown(self):
@@ -244,9 +286,9 @@ class TableOfContents(Block, type="table_of_contents"):
     """A table_of_contents block in Notion."""
 
     class NestedData(NestedObject):
-        pass
+        color: FullColor = FullColor.default
 
-    table_of_contents: Optional[NestedData] = None
+    table_of_contents: NestedData = NestedData()
 
 
 class Breadcrumb(Block, type="breadcrumb"):
@@ -255,7 +297,7 @@ class Breadcrumb(Block, type="breadcrumb"):
     class NestedData(NestedObject):
         pass
 
-    breadcrumb: Optional[NestedData] = None
+    breadcrumb: NestedData = NestedData()
 
 
 class Embed(Block, type="embed"):
@@ -343,7 +385,7 @@ class ColumnList(Block, type="column_list"):
     class NestedData(NestedObject):
         pass
 
-    column_list: Optional[NestedData] = None
+    column_list: NestedData = NestedData()
 
 
 class Column(Block, type="column"):
@@ -352,7 +394,7 @@ class Column(Block, type="column"):
     class NestedData(NestedObject):
         pass
 
-    column: Optional[NestedData] = None
+    column: NestedData = NestedData()
 
 
 class LinkPreview(Block, type="link_preview"):
@@ -382,3 +424,13 @@ class TableRow(Block, type="table_row"):
         cells: List[List[RichTextObject]] = None
 
     table_row: NestedData = NestedData()
+
+
+class Template(Block, AppendChildren, type="template"):
+    """A template block in Notion."""
+
+    class NestedData(NestedObject):
+        rich_text: Optional[List[RichTextObject]] = None
+        children: Optional[List[Block]] = None
+
+    template: NestedData = NestedData()
